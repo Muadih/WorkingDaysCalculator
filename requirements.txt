@@ -1,0 +1,8 @@
+Flask==2.0.1
+flask-admin==1.6.1
+flask-sqlalchemy==2.5.1
+psycopg2-binary==2.9.3
+SQLAlchemy==1.4.23
+python-holidays==0.14.2
+WTForms==3.0.1
+flask-login==0.6.2

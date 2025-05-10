@@ -1,2 +1,8 @@
 Dockerfile
-README.md
+[README.md](http://_vscodecontentref_/4)
+[builder.sh](http://_vscodecontentref_/5)
+.git
+__pycache__
+*.pyc
+.env
+tests/

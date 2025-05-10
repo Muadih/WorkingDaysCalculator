@@ -37,8 +37,11 @@ The service takes into account:
 - [Swagger Documentation](#swagger-documentation)
 - [Project Structure](#project-structure)
 - [Create_db.sh](#createdbsh)
+- [Builder Script](#builder-script)
+- [.dockerignore](#dockerignore)
 - [Admin Panel](#admin-panel)
 - [Azure Best Practices](#azure-best-practices)
+- [Running the Container](#running-the-container)
 
 ## API Endpoints
 
@@ -300,6 +303,41 @@ The `create_db.sh` script automates several tasks for setting up your PostgreSQL
 
 ---
 
+## Builder Script
+
+The `builder.sh` script automates the process of committing all changes in the local Git repository and building the Docker image. It performs the following steps:
+1. Checks if there are any changes to commit.
+2. If changes are found, it commits them with the message "Automated commit: commit all changes before building Docker image" and pushes them to the repository.
+3. It then builds the Docker image tagged as `workingdayscalculator:latest`.
+
+**Usage:**
+```bash
+chmod +x builder.sh
+./builder.sh
+```
+
+> **Note:** Before deploying to Azure, remember to run your `azure_development-get_best_practices` tool if available.
+
+---
+
+## .dockerignore
+To exclude unnecessary files from the Docker build context, add the `builder.sh` script (along with other files such as the Dockerfile and README.md) to your `.dockerignore` file.
+
+Example `.dockerignore`:
+```bash
+# filepath: 
+Dockerfile
+
+
+.git
+__pycache__
+*.pyc
+.env
+tests/
+```
+
+---
+
 ## Admin Panel
 The admin panel allows you to manage holidays in the system through a web-based interface.
 
@@ -341,4 +379,19 @@ Replace `<your_acr_name>` with your actual Azure Container Registry name.
 
 ---
 
-This README.md provides a full overview of WorkingDaysCalculator, complete with detailed API documentation, usage examples, instructions for database setup, an explanation of the project structure, admin panel details, and Azure deployment best practices.
+## Running the Container
+
+Once you have built the Docker image (either by manually running `docker build -t workingdayscalculator:latest .` or using the provided `builder.sh` script), you can run the container with the following command:
+
+```bash
+docker run -p 5000:5000 workingdayscalculator:latest
+```
+
+This command maps port 5000 on the container to port 5000 on your host machine, allowing you to access the application at:
+
+```
+http://localhost:5000
+```
+
+> **Azure Best Practices:**  
+> If deploying to Azure, run the `azure_development-get_best_practices` tool (if available) to ensure your container configuration and deployment meet Azure guidelines.

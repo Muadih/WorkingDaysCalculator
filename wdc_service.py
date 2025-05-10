@@ -1,6 +1,7 @@
 from flask import Flask, request, jsonify, redirect, url_for
 from datetime import datetime, timedelta
 import holidays
+from flasgger import Swagger  # New: Import Flasgger
 from models import db, Holiday, init_db
 from admin import init_admin
 from flask_login import LoginManager
@@ -10,12 +11,36 @@ app.config['SECRET_KEY'] = 'your-secret-key'  # Change this to a secure secret k
 app.config['SQLALCHEMY_DATABASE_URI'] = "postgresql://wdc_user:your_secure_password@localhost:5432/working_days_db"
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
+# New: Swagger configuration for API documentation, with versioned documentation path.
+swagger_config = {
+    "headers": [],
+    "specs": [
+        {
+            "endpoint": "apispec_1",
+            "route": "/apispec_1.json",
+            "rule_filter": lambda rule: True,  # include all endpoints
+            "model_filter": lambda tag: True,  # include all models
+        }
+    ],
+    "static_url_path": "/flasgger_static",
+    "swagger_ui": True,
+    "specs_route": "/api/v1/swagger"  # Swagger UI available at /api/v1/swagger
+}
+swagger = Swagger(app, config=swagger_config)
+
 # Initialize extensions
 db.init_app(app)
 admin = init_admin(app, db)
 
 @app.route('/')
 def index():
+    """
+    Redirects to the Admin Panel.
+    ---
+    responses:
+      302:
+        description: Redirecting to admin panel
+    """
     return redirect('/admin')
 
 # Polish holidays
@@ -40,8 +65,30 @@ def is_working_day(date):
             date not in pl_holidays and 
             date.date() not in custom_holidays)
 
-@app.route('/api/is-working-day', methods=['GET'])
+@app.route('/api/v1/is-working-day', methods=['GET'])
 def check_working_day():
+    """
+    Check if a given date is a working day.
+    ---
+    parameters:
+      - name: date
+        in: query
+        type: string
+        required: true
+        description: Date in format YYYY-MM-DD
+    responses:
+      200:
+        description: Returns if the date is a working day
+        schema:
+          type: object
+          properties:
+            date:
+              type: string
+            is_working_day:
+              type: boolean
+      400:
+        description: Invalid date format or missing parameters
+    """
     try:
         date_str = request.args.get('date')
         if not date_str:
@@ -57,7 +104,7 @@ def check_working_day():
     except ValueError:
         return jsonify({'error': 'Invalid date format. Use YYYY-MM-DD'}), 400
 
-@app.route('/api/working-days-between', methods=['GET'])
+@app.route('/api/v1/working-days-between', methods=['GET'])
 def count_working_days():
     try:
         start_date_str = request.args.get('start_date')
@@ -81,7 +128,7 @@ def count_working_days():
     except ValueError:
         return jsonify({'error': 'Invalid date format. Use YYYY-MM-DD'}), 400
 
-@app.route('/api/working-days-count', methods=['GET'])
+@app.route('/api/v1/working-days-count', methods=['GET'])
 def get_working_days_count():
     try:
         start_date_str = request.args.get('start_date')
@@ -109,7 +156,7 @@ def get_working_days_count():
     except ValueError:
         return jsonify({'error': 'Invalid date format. Use YYYY-MM-DD'}), 400
 
-@app.route('/api/holidays', methods=['POST'])
+@app.route('/api/v1/holidays', methods=['POST'])
 def add_holiday():
     try:
         data = request.get_json()
@@ -141,7 +188,7 @@ def add_holiday():
     except ValueError:
         return jsonify({'error': 'Invalid date format. Use YYYY-MM-DD'}), 400
 
-@app.route('/api/holidays', methods=['GET'])
+@app.route('/api/v1/holidays', methods=['GET'])
 def list_holidays():
     db_session = db.session
     try:
@@ -154,14 +201,14 @@ def list_holidays():
     finally:
         db_session.close()
 
-@app.route('/health')
+@app.route('/api/v1/health')
 def health_check():
     """
     Liveness probe - just checks if application is running
     """
     return jsonify({'status': 'alive'}), 200
 
-@app.route('/ready')
+@app.route('/api/v1/ready')
 def readiness_check():
     """
     Readiness probe - checks if application can handle traffic
@@ -201,6 +248,78 @@ def readiness_check():
             'checks': status,
             'error': str(e)
         }), 503
+
+@app.route('/api/v1/calc-end-date', methods=['GET'])
+def calc_end_date():
+    """
+    Calculate end date based on a start date and a number of working days.
+    Expects query parameters:
+      - start_date (format: YYYY-MM-DD)
+      - working_days (integer)
+    """
+    start_date_str = request.args.get('start_date')
+    working_days_str = request.args.get('working_days')
+
+    if not start_date_str or not working_days_str:
+        return jsonify({'error': 'start_date and working_days parameters are required'}), 400
+
+    try:
+        working_days = int(working_days_str)
+    except ValueError:
+        return jsonify({'error': 'working_days must be an integer'}), 400
+
+    try:
+        current_date = datetime.strptime(start_date_str, '%Y-%m-%d')
+    except ValueError:
+        return jsonify({'error': 'Invalid start_date format. Use YYYY-MM-DD'}), 400
+
+    days_counted = 0
+    while days_counted < working_days:
+        current_date += timedelta(days=1)
+        if is_working_day(current_date):
+            days_counted += 1
+
+    return jsonify({
+        'start_date': start_date_str,
+        'working_days': working_days,
+        'end_date': current_date.strftime('%Y-%m-%d')
+    }), 200
+
+@app.route('/api/v1/calc-start-date', methods=['GET'])
+def calc_start_date():
+    """
+    Calculate start date based on an end date and a number of working days.
+    Expects query parameters:
+      - end_date (format: YYYY-MM-DD)
+      - working_days (integer)
+    """
+    end_date_str = request.args.get('end_date')
+    working_days_str = request.args.get('working_days')
+
+    if not end_date_str or not working_days_str:
+        return jsonify({'error': 'end_date and working_days parameters are required'}), 400
+
+    try:
+        working_days = int(working_days_str)
+    except ValueError:
+        return jsonify({'error': 'working_days must be an integer'}), 400
+
+    try:
+        current_date = datetime.strptime(end_date_str, '%Y-%m-%d')
+    except ValueError:
+        return jsonify({'error': 'Invalid end_date format. Use YYYY-MM-DD'}), 400
+
+    days_counted = 0
+    while days_counted < working_days:
+        current_date -= timedelta(days=1)
+        if is_working_day(current_date):
+            days_counted += 1
+
+    return jsonify({
+        'end_date': end_date_str,
+        'working_days': working_days,
+        'start_date': current_date.strftime('%Y-%m-%d')
+    }), 200
 
 if __name__ == '__main__':
     init_db()

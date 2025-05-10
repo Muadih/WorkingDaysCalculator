@@ -154,6 +154,54 @@ def list_holidays():
     finally:
         db_session.close()
 
+@app.route('/health')
+def health_check():
+    """
+    Liveness probe - just checks if application is running
+    """
+    return jsonify({'status': 'alive'}), 200
+
+@app.route('/ready')
+def readiness_check():
+    """
+    Readiness probe - checks if application can handle traffic
+    """
+    status = {
+        'database': False,
+        'holidays_service': False,
+        'overall': False
+    }
+    
+    try:
+        # Check database connection
+        db.session.execute('SELECT 1')
+        status['database'] = True
+        
+        # Check holidays service
+        test_date = datetime.now()
+        _ = holidays.PL().get(test_date)
+        status['holidays_service'] = True
+        
+        # If all checks pass, set overall status to True
+        if all([status['database'], status['holidays_service']]):
+            status['overall'] = True
+            return jsonify({
+                'status': 'ready',
+                'checks': status
+            }), 200
+        else:
+            return jsonify({
+                'status': 'not ready',
+                'checks': status
+            }), 503
+            
+    except Exception as e:
+        return jsonify({
+            'status': 'not ready',
+            'checks': status,
+            'error': str(e)
+        }), 503
+
 if __name__ == '__main__':
     init_db()
     app.run(debug=True)

@@ -42,6 +42,7 @@ The service takes into account:
 - [Admin Panel](#admin-panel)
 - [Azure Best Practices](#azure-best-practices)
 - [Running the Container](#running-the-container)
+- [Testing](#testing)
 
 ## API Endpoints
 
@@ -395,3 +396,81 @@ http://localhost:5000
 
 > **Azure Best Practices:**  
 > If deploying to Azure, run the `azure_development-get_best_practices` tool (if available) to ensure your container configuration and deployment meet Azure guidelines.
+
+---
+
+## Testing
+
+The application includes a comprehensive test suite that covers all major functionality. The tests are organized in the `tests` directory with the following structure:
+
+```
+tests/
+├── __init__.py
+├── conftest.py              # pytest configuration and fixtures
+└── unit/
+    ├── __init__.py
+    └── test_wdc_service.py  # unit tests for the main service
+```
+
+### Test Coverage
+
+The test suite covers:
+- API endpoint validation
+- Working days calculations
+- Holiday management
+- Health and readiness checks
+- Date calculation functions
+
+### Running Tests
+
+1. Install test dependencies:
+```bash
+pip install -r requirements.txt
+```
+
+2. Make the test script executable:
+```bash
+chmod +x run_tests.sh
+```
+
+3. Run the tests:
+```bash
+./run_tests.sh
+```
+
+The test script will:
+- Create a test database
+- Run all tests with coverage reporting
+- Clean up the test database after completion
+
+### Test Configuration
+
+The tests use a separate test database to avoid interfering with your development or production database. The test configuration is defined in `tests/conftest.py`.
+
+### Example Test Run Output
+
+```bash
+============================= test session starts ==============================
+collecting ... collected 8 tests
+
+test_wdc_service.py::test_is_working_day_endpoint PASSED           [ 12%]
+test_wdc_service.py::test_working_days_between PASSED              [ 25%]
+test_wdc_service.py::test_add_holiday PASSED                       [ 37%]
+test_wdc_service.py::test_list_holidays PASSED                     [ 50%]
+test_wdc_service.py::test_calc_end_date PASSED                     [ 62%]
+test_wdc_service.py::test_calc_start_date PASSED                   [ 75%]
+test_wdc_service.py::test_health_check PASSED                      [ 87%]
+test_wdc_service.py::test_readiness_check PASSED                   [100%]
+
+============================== 8 passed in 3.24s ==============================
+```
+
+### Adding New Tests
+
+When adding new functionality, ensure to:
+1. Create corresponding test cases in `tests/unit/test_wdc_service.py`
+2. Update fixtures in `conftest.py` if needed
+3. Run the full test suite to ensure no regressions
+
+> **Azure Best Practices:**  
+> If deploying to Azure, run the `azure_development-get_best_practices` tool (if available) to ensure your testing configuration meets Azure guidelines, particularly around security and access control.
